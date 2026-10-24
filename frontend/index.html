@@ -1,0 +1,63 @@
+<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<title>AgriSense XAI</title><style>
+body{font-family:sans-serif;background:#020617;color:#fff;margin:0}
+.nav{background:#0f172a;padding:16px 32px;display:flex;justify-content:space-between}
+.grid{max-width:1150px;margin:24px auto;display:grid;grid-template-columns:1fr 1.4fr;gap:24px;padding:0 20px}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:22px}
+.row{margin-bottom:14px}.lbl{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.val{color:#34d399;font-weight:700}input{width:100%;accent-color:#10b981}
+.btn{width:100%;padding:12px;background:#10b981;border:none;border-radius:10px;font-weight:800;cursor:pointer}
+.bar{height:12px;background:#020617;border-radius:6px;overflow:hidden;margin-top:4px}
+.pos{height:100%;background:#10b981}.neg{height:100%;background:#f43f5e}
+</style></head><body>
+<div class='nav'><h2>AgriSense <span style='color:#34d399'>XAI</span></h2>
+<div id='st' style='color:#34d399;font-weight:700'>API Online (22 Crops)</div></div>
+<div class='grid'><div class='card'><h3>Soil & Climate Telemetry</h3>
+<div class='row'><div class='lbl'><span>Nitrogen (N)</span><span class='val' id='vN'>90</span></div>
+<input type='range' id='N' min='0' max='140' value='90' oninput='u()'></div>
+<div class='row'><div class='lbl'><span>Phosphorus (P)</span><span class='val' id='vP'>42</span></div>
+<input type='range' id='P' min='5' max='145' value='42' oninput='u()'></div>
+<div class='row'><div class='lbl'><span>Potassium (K)</span><span class='val' id='vK'>43</span></div>
+<input type='range' id='K' min='5' max='205' value='43' oninput='u()'></div>
+<div class='row'><div class='lbl'><span>Temperature (C)</span><span class='val' id='vT'>20.8</span></div>
+<input type='range' id='temperature' min='8' max='45' step='0.1' value='20.8' oninput='u()'></div>
+<div class='row'><div class='lbl'><span>Humidity (%)</span><span class='val' id='vH'>82.0</span></div>
+<input type='range' id='humidity' min='14' max='100' step='0.5' value='82.0' oninput='u()'></div>
+<div class='row'><div class='lbl'><span>Soil pH</span><span class='val' id='vPH'>6.5</span></div>
+<input type='range' id='ph' min='3.5' max='9.5' step='0.1' value='6.5' oninput='u()'></div>
+<div class='row'><div class='lbl'><span>Rainfall (mm)</span><span class='val' id='vR'>202.9</span></div>
+<input type='range' id='rainfall' min='20' max='300' step='0.5' value='202.9' oninput='u()'></div>
+<button class='btn' onclick='u()'>Run Agronomic AI Analysis</button></div>
+<div style='display:flex;flex-direction:column;gap:20px'>
+<div class='card' style='display:flex;justify-content:space-between;align-items:center'>
+<div><small style='color:#34d399'>RECOMMENDED CROP</small><h1 id='cr' style='font-size:36px;margin:4px 0'>RICE</h1>
+<small id='bs' style='color:#94a3b8'>Base Log-Odds: --</small></div>
+<div style='text-align:right'><small style='color:#94a3b8'>Confidence</small>
+<h2 id='cf' style='color:#34d399;font-size:28px'>98.95%</h2></div></div>
+<div class='card'><h3>Explainable AI: Local SHAP Feature Attribution</h3>
+<p style='font-size:12px;color:#94a3b8;margin-bottom:14px'>Green (+) pushes toward crop | Red (-) pushes against</p>
+<div id='bars'></div></div></div></div>
+<script>
+async function u(){
+  const ids=['N','P','K','temperature','humidity','ph','rainfall'];
+  const vIds=['vN','vP','vK','vT','vH','vPH','vR'];
+  const b={};
+  ids.forEach((k,i)=>{const el=document.getElementById(k);b[k]=Number(el.value);document.getElementById(vIds[i]).innerText=el.value;});
+  const r=await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  const d=await r.json();
+  document.getElementById('cr').innerText=d.recommended_crop.toUpperCase();
+  document.getElementById('cf').innerText=d.confidence+'%';
+  document.getElementById('bs').innerText='SHAP Base Log-Odds: '+d.base_value;
+  const ent=Object.entries(d.shap_contributions).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const mx=Math.max(...ent.map(e=>Math.abs(e[1])),0.01);
+  let h='';
+  for(const [k,v] of ent){
+    const w=Math.round((Math.abs(v)/mx)*100);
+    const c=v>=0?'pos':'neg';
+    const col=v>=0?'#34d399':'#fb7185';
+    h+=`<div class='row'><div class='lbl'><b>${k.toUpperCase()}</b><span style='color:${col}'>${v>=0?'+':''}${v.toFixed(4)}</span></div><div class='bar'><div class='${c}' style='width:${w}%'></div></div></div>`;
+  }
+  document.getElementById('bars').innerHTML=h;
+}
+u();
+</script></body></html>
